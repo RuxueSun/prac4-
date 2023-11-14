@@ -1,0 +1,55 @@
+netup <- function(d) {
+  
+  #number of layers
+  layers <- length(d)
+  
+  ### Initialize weight matrices with U(0, 0.2) random deviates
+  W <- vector("list", length = layers - 1)
+  for (i in 1:(layers - 1)) {
+    W[[i]] <- matrix(runif(d[i] * d[i + 1], 0, 0.2), 
+                     nrow = d[i+1], ncol = d[i])
+  }
+  
+  ### Initialize offset vectors with U(0, 0.2) random deviates
+  b <- vector("list", length = layers - 1)
+  for (i in 1:(layers - 1)) {
+    b[[i]] <- runif(d[i + 1], 0, 0.2)
+  }
+  
+  ### Initialize nodes for each layer
+  h <- vector("list", length = layers)
+  
+  #nodes for first layer is the values of input data
+  h[[1]] <- numeric(d[1])
+  
+  #nodes for other layers
+  for (i in 2:layers) {
+    h[[i]] <- apply(W[[i-1]], 1, function(row) row %*% h[[i-1]]) + b[[i-1]]
+    h[[i]][h[[i]]<0] <- 0  #the ReLU transform φ(z) = max(0, z)
+  }
+  
+  network <- list(W = W, b = b, h = h)
+  
+  return(network)
+}
+
+
+
+#################2
+forward <- function(nn,inp){
+  
+  W <- nn$W ; b <- nn$b ; h <- nn$h
+  
+  h[[1]] <- inp
+  
+  layers <- length(h)
+    
+  for (i in 2:layers) {
+    h[[i]] <- apply(W[[i-1]], 1, function(row) row %*% h[[i-1]]) + b[[i-1]]
+    h[[i]][h[[i]]<0] <- 0  #the ReLU transform φ(z) = max(0, z)
+  }
+  
+  network <- list(W = W, b = b, h = h)
+  
+  return(network)
+}
