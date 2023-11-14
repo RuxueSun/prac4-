@@ -1,0 +1,13 @@
+# Train the neural network
+train <- function(nn, inp, k, eta = 0.01, mb = 10, nstep = 10000) {
+    n <- nrow(inp)  
+    for (step in 1:nstep) {
+    indices <- sample(1:n, mb, replace = TRUE) 
+    mini_batch_inp <- inp[indices, ] 
+    mini_batch_k <- k[indices]
+    nn <- forward(nn, mini_batch_inp)
+    nn <- backward(nn, mini_batch_k)
+    nn <- update_parameters(nn, eta)
+  }
+  return(nn)
+}
