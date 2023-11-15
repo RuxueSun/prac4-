@@ -1,0 +1,152 @@
+#################### 1 netup function
+## purpose:
+## Input:
+##      d:a vector giving the number of nodes in each layer of a network.
+## Output:
+##      h: a list of nodes for each layer.
+##      w: a list of weight matrices.
+##      b: a list of offset vectors.
+
+netup <- function(d){
+  
+  # calculate the number of layers
+  layer <- length(d)
+  
+  # Initialize weight matrices with U(0, 0.2) random deviates
+  W <- vector('list', layer-1)
+  for (i in 1:(layer-1)){
+    W[[i]] <- matrix(runif(d[i] * d[i+1],0 , 0.2), nrow = d[i+1], ncol = d[i])
+  }
+  
+  # Initialize offset vectors with U(0, 0.2) random deviates
+  b <- vector('list', layer-1)
+  for (i in 1:(layer-1)){
+    b[[i]] <- runif(d[i+1],0,0.2)
+  }
+  
+  # Initialize nodes for each layer
+  h <- vector('list', layer)
+  
+  # nodes for first layer is the values of input data
+  h[[1]] <- numeric(d[1])
+  
+  # nodes for other layers
+  for (i in 2:layer){
+    for (j in 1:d[i]){
+      h[[i]][j] <- max(0,W[[i-1]][j,] %*% h[[i-1]] + b[[i-1]][j])
+    }
+  }
+  
+  network <- list(h=h, W=W, b=b)
+  
+  return(network)
+  
+}
+
+#################### 2 forward function
+## purpose:
+## Input:
+##       nn: a network list as returned by netup.
+##       inp: a vector of input values for the first layer.
+## Output:
+##       updated network list.
+
+forward <- function(nn,inp){
+  
+  # recall the results of netup function
+  h <- nn$h
+  W <- nn$W 
+  b <- nn$b 
+  
+  # values for the first layer
+  h[[1]] <- inp
+  
+  # nodes for other layers
+  for (i in 2:length(W)+1){
+    h[[i]] <- pmax(0, W[[i-1]] %*% h[[i-1]] + b[[i-1]])
+  }
+  
+  network <- list(h=h, W=W, b=b)
+  
+  return(network)
+}
+
+#################### 3 backward function
+## purpose:
+## Input:
+##       nn: a network list as returned by forward.
+##       k: output class.
+## Output:
+##       updated network list after adding dh, dW, db.
+backward <- function(nn,k){
+  # nn <- forward(netup(k),iris[1,1:4])
+  # k <- iris[1,6]
+  # recall the results of forward function
+  h <- nn$h
+  W <- nn$W 
+  b <- nn$b
+  
+  # calculate the layers
+  layer <- length(h)
+  
+  # 
+  dh <- vector('list', layer)
+  dW <- vector('list', layer-1)
+  db <- vector('list', layer-1)
+  
+  # pk
+  #求和
+  sum <- sum(exp(h[[layer]]))
+  
+  pk <- exp(h[[layer]][k])/sum
+  
+  # loss function
+  L_i <- -log(pk)
+  
+  # dh的最后一个
+  for (j in 1:length(h[[layer]])){
+    if (j != k){
+      dh[[layer]][j] <- exp(h[[layer]][j])/sum
+    }else{
+      dh[[layer]][j] <- exp(h[[layer]][j])/sum - 1 ####?分母
+    }
+  }
+  
+  # 求dl
+  db <- vector('list', layer-1)
+  
+  # 求dl的2到layer个列表和dh的其他
+  for (i in layer:2){
+    
+    for (j in 1:length(h[[i]])){
+      
+      if (h[[i]][j] > 0){
+        db[[i-1]][j] <- dh[[i]][j]
+      }else{
+        db[[i-1]][j] <- 0
+      }
+      
+    }
+    
+    dh[[i-1]] <- t(W[[i-1]]) %*% db[[i-1]]
+    
+  }
+  
+  # 求对W的偏导
+  for (i in 1:(layer-1)){
+    dW[[i]] <- db[[i]] %*% t(h[[i+1]])
+  }
+  
+  network <- list(h=h, W=W, b=b, dh=dh, dW=dW, db=db)
+  
+  return(network)
+  
+}
+
+
+##########测试代码：
+set.seed(123)
+k <- c(4,8,7,3)
+nn <- forward(netup(k),iris[1,1:4])
+backward(nn,iris[1,6])
+
