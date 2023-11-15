@@ -1,0 +1,176 @@
+
+netup <- function(d){
+  
+  # calculate the number of layers
+  layer <- length(d)
+  
+  # Initialize weight matrices with U(0, 0.2) random deviates
+  W <- vector('list', layer-1)
+  for (i in 1:(layer-1)){
+    W[[i]] <- matrix(runif(d[i] * d[i+1],0 , 0.2), nrow = d[i+1], ncol = d[i])
+  }
+  
+  # Initialize offset vectors with U(0, 0.2) random deviates
+  b <- vector('list', layer-1)
+  for (i in 1:(layer-1)){
+    b[[i]] <- runif(d[i+1],0,0.2)
+  }
+  
+  # Initialize nodes for each layer
+  h <- vector('list', layer)
+  
+  # nodes for first layer is the values of input data
+  h[[1]] <- numeric(d[1])
+  
+  # nodes for other layers
+  for (i in 2:layer){
+    for (j in 1:d[i]){
+      h[[i]][j] <- max(0,W[[i-1]][j,] %*% h[[i-1]] + b[[i-1]][j])
+    }
+  }
+  
+  network <- list(h=h, W=W, b=b)
+  
+  return(network)
+  
+}
+
+
+forward <- function(nn,inp){
+  
+  # recall the results of netup function
+  h <- nn$h
+  W <- nn$W 
+  b <- nn$b 
+  
+  # values for the first layer
+  h[[1]] <- inp
+  
+  # nodes for other layers
+  for (i in 2:length(W)+1){
+    h[[i]] <- pmax(0, W[[i-1]] %*% h[[i-1]] + b[[i-1]])
+  }
+  
+  network <- list(h=h, W=W, b=b)
+  
+  return(network)
+}
+
+
+backward <- function(nn,k){
+  # nn <- forward(netup(k),iris[1,1:4])
+  # k <- iris[1,6]
+  # recall the results of forward function
+  h <- nn$h
+  W <- nn$W 
+  b <- nn$b
+  
+  # calculate the layers
+  layer <- length(h)
+  
+  # 
+  dh <- vector('list', layer)
+  dW <- vector('list', layer-1)
+  db <- vector('list', layer-1)
+  
+  # pk
+  #求和
+  sum <- sum(exp(h[[layer]]))
+  
+  pk <- exp(h[[layer]][k])/sum
+  
+  # loss function
+  L_i <- -log(pk)
+  
+  # dh的最后一个
+  for (j in 1:length(h[[layer]])){
+    if (j != k){
+      dh[[layer]][j] <- exp(h[[layer]][j])/sum
+    }else{
+      dh[[layer]][j] <- exp(h[[layer]][j])/sum - 1 ####?分母
+    }
+  }
+  
+  # 求dl
+  db <- vector('list', layer-1)
+  
+  # 求dl的2到layer个列表和dh的其他
+  for (i in layer:2){
+    
+    for (j in 1:length(h[[i]])){
+      
+      if (h[[i]][j] > 0 ){
+        db[[i-1]][j] <- dh[[i]][j]
+      }else{
+        db[[i-1]][j] <- 0
+      }
+      
+    }
+    
+    dh[[i-1]] <- t(W[[i-1]]) %*% db[[i-1]]
+    
+  }
+  
+  # 求对W的偏导
+  for (i in 1:(layer-1)){
+    bdb <- as.numeric(db[[i]])
+    hnn <- as.numeric(h[[i]])
+    dW[[i]] <- bdb %*% t(hnn)
+  }
+  
+  network <- list(h=h, W=W, b=b, dh=dh, dW=dW, db=db)
+  
+  return(network)
+  
+}
+
+
+##############4
+##############4
+train <- function(nn, inp, k, eta = 0.01, mb = 10, nstep = 10000) {
+  
+  sp <- sample(1:nrow(inp),mb)
+  
+  for(i in 1:mb){
+    #第一次，输入数据到网络
+    
+    nn <- forward(nn,inp[sp[i],]) #nn是一个包含WBH的列表
+    
+    #recursive to optimize the network
+    for(j in 1:nstep){
+      
+      nn_D <- backward(nn,k[sp[i]])
+      #update the parameter
+      
+      # 定义一个函数，对两个矩阵进行逐元素操作
+      subtract_multiply <- function(matrix1, matrix2) {
+        return(matrix1 - eta * matrix2)
+      }
+      
+      # 使用lapply应用函数到列表中的每个矩阵
+      nn$W <- Map(subtract_multiply, nn$W, nn_D$dW)
+      nn$b <- Map(subtract_multiply, nn$b, nn_D$db)
+      
+    }
+  }
+  
+  return(nn)
+  
+}
+
+k <- c(4,8,7,3)
+data(iris)
+iris$Species_numeric <- as.numeric(iris$Species) #类别数值化
+str(iris)
+nn <- netup(k)
+test <- train(nn, iris[,1:4], iris[,6], eta = 0.01, mb = 10, nstep = 10000)
+
+
+
+
+##########测试代码：
+set.seed(123)
+k <- c(4,8,7,3)
+nn <- forward(netup(k),iris[1,1:4])
+backward(nn,iris[1,6])
+
