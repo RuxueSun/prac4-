@@ -43,6 +43,7 @@ netup <- function(d){
   
 }
 
+  
 #################### 2 forward function
 ## purpose:
 ## Input:
@@ -71,6 +72,11 @@ forward <- function(nn,inp){
   return(network)
 }
 
+#测试
+set.seed(123)
+nn_1 <- netup(c(4,8,7,3))
+nn_2 <- forward(nn_1,c(5.1,3.5,1.4,0.2))
+
 #################### 3 backward function
 ## purpose:
 ## Input:
@@ -79,7 +85,7 @@ forward <- function(nn,inp){
 ## Output:
 ##       updated network list after adding dh, dW, db.
 
-backword <- function(nn,k){
+backward <- function(nn,k){
   
   # recall the results of forward function
   h <- nn$h
@@ -91,7 +97,7 @@ backword <- function(nn,k){
   
   # 
   dh <- vector('list', layer)
-  dw <- vector('list', layer-1)
+  dW <- vector('list', layer-1)
   db <- vector('list', layer-1)
   
   # pk
@@ -108,10 +114,10 @@ backword <- function(nn,k){
   
   # dh的最后一个
   for (j in 1:length(h[[layer]])){
-    if (j == k){
+    if (j != k){
       dh[[layer]][j] <- exp(h[[layer]][j])/sum
     }else{
-      dh[[layer]][j] <- exp(h[[layer]][j])/(sum - 1)
+      dh[[layer]][j] <- exp(h[[layer]][j])/sum - 1
     }
   }
   
@@ -121,21 +127,18 @@ backword <- function(nn,k){
   # 给dl第一个列表赋值 只用到第二到layer个
   dl[[1]] <- numeric(length(h[[1]]))
   
-  # 求dl的2到layer个列表
+  # 求dl的2到layer个列表和dh的其他
   for (i in (layer-1):1){
-    for (j in length(h[[i+1]])){
+    for (j in 1:length(h[[i+1]])){
       if (h[[i+1]][j] > 0){
         dl[[i+1]][j] <- dh[[i+1]][j]
       }else{
         dl[[i+1]][j] <- 0
       }
     }
-  }
-  
-  # 求dh的其他
-  for (i in 1:(layer-1)){
     dh[[i]] <- t(W[[i]]) %*% dl[[i+1]]
   }
+
   
   # 求对b的偏导
   for (i in 1:(layer-1)){
@@ -153,6 +156,8 @@ backword <- function(nn,k){
   
 }
 
+backward(nn_2,1)
+
 #################### 4 train function
 ## purpose:
 ## Input:
@@ -162,20 +167,54 @@ backword <- function(nn,k){
 ##       eta: the step size.
 ##       mb: the number of data to randomly sample to compute the gradient.
 ##       nstep: the number of optimization steps to take.
-## Output:
-##       
 
+#第一问：构建搭建神经网络netup(d)
+#第二问：插入了输入层数据forward(nn,inp)
+#第三问：计算损失函数，得到新的W和B和H backward(nn,k)
+#第四问：用eta为步长更新W和B
 train <- function(nn, inp, k, eta = 0.01, mb = 10, nstep = 10000) {
-  n <- nrow(inp)  
-  for (step in 1:nstep) {
-    indices <- sample(1:n, mb, replace = TRUE) 
-    mini_batch_inp <- inp[indices, ] 
-    mini_batch_k <- k[indices]
-    nn <- forward(nn, mini_batch_inp)
-    nn <- backward(nn, mini_batch_k)
-    nn <- update_parameters(nn, eta)
+  
+  #从输入矩阵里随抽取mb个样本
+  sp <- sample(1:nrow(inp),mb,replace = True)
+  
+  for(i in 1:mb){
+    #第一次，输入数据到网络
+    nn <- forward(nn,inp[sp]) #nn是一个包含WBH的列表
+    
+    #recursive to optimize the network
+    for(j in 1:nstep){
+      nn_D <- backward(nn,k)
+      #update the parameter
+      nn$W <- nn$W-eta*nn_D$dW
+      nn$b <- nn$W-eta*nn_D$db
+      
+    }
   }
+  
   return(nn)
 }
+
+#################### 5 
+## purpose:
+
+# 生成训练集和测试集
+num_rows <- nrow(iris)
+test_index <- seq(5,num_rows,5)
+test_data <- iris[test_index,]
+training_data <- iris[-test_index,]
+
+# set up d, which is the number of nodes in each layer of a network.
+d <- c(4,8,7,3)
+
+# 训练iris数据
+set.seed(123)
+nn_1 <- netup(d)
+nn_2 <- forward(nn_1, training_data[1,1:4])
+nn_3 <- backward(nn_2,1)
+nn_4 <- train(nn_3,training_data[,1:4],training_data[,5],eta = 0.01, mb = 10, nstep = 10000)
+
+
+
+
 
 
