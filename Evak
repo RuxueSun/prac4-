@@ -1,4 +1,4 @@
-##############################
+
 netup <- function(d){
   
   # calculate the number of layers
@@ -35,7 +35,7 @@ netup <- function(d){
   
 }
 
-######################################
+
 forward <- function(nn,inp){
   
   # recall the results of netup function
@@ -56,7 +56,7 @@ forward <- function(nn,inp){
   return(network)
 }
 
-#########################################3
+
 backward <- function(nn,k){
   
   h <- nn$h
@@ -123,7 +123,7 @@ backward <- function(nn,k){
 }
 
 
-###########################4
+##############4
 train <- function(nn, inp, k, eta = 0.01, mb = 10, nstep = 10000) {
   
   sp <- sample(1:nrow(inp),mb)
@@ -142,12 +142,16 @@ train <- function(nn, inp, k, eta = 0.01, mb = 10, nstep = 10000) {
       nb <- backward(nn,k[sp[i]])
       
       #求和
-      sumW <- lapply(seq_along(sumW), function(i) sumW[[i]] + nd$dW[[i]])
+      sumW <- lapply(seq_along(sumW), function(i) sumW[[i]] + nb$dW[[i]])
       sumb <- Map('+',sumb,nb$db)
     }
     
-    ets_EW <- lapply(sumW, function(a) (eta*a)/10 )
-    ets_Eb <- lapply(sumb, function(vec) (eta*vec) / 10)
+    eta_EW <- lapply(sumW, function(a) (eta*a)/10 )
+    eta_Eb <- lapply(sumb, function(vec) (eta*vec) / 10)
+    
+    #更新
+    nn$W <- lapply(seq_along(eta_EW), function(i) eta_EW[[i]] - nb$dW[[i]])
+    nn$b <- Map('-',nn$b,eta_Eb)
     
   }
   
@@ -155,10 +159,12 @@ train <- function(nn, inp, k, eta = 0.01, mb = 10, nstep = 10000) {
   
 }
 
-#############################35
+##############5
 set.seed(123)
-
+data(iris)
 k <- c(4,8,7,3)
+iris$Species_numeric <- as.numeric(iris$Species) #类别数值化
+iris <- as.matrix(iris[,-5])
 num_rows <- nrow(iris)
 test_index <- seq(5,num_rows,5)
 test_data <- iris[test_index,]
@@ -167,7 +173,7 @@ training_data <- iris[-test_index,]
 
 #train:
 nn <- netup(k)
-test <- train(nn, training_data[,1:4], training_data[,5], eta = 0.01, mb = 10, nstep = 10000)
+test <- train(nn, training_data[,1:4], training_data[,5], eta = 0.01, mb = 10, nstep = 100)
 
-
+############6
 
