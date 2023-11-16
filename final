@@ -145,9 +145,9 @@ train <- function(nn, inp, k, eta = 0.01, mb = 10, nstep = 10000) {
     #更新
     nn$W <- lapply(seq_along(eta_EW), function(i) nn$W[[i]] - eta_EW[[i]])
     nn$b <- Map('-',nn$b,eta_Eb)
-
     
-    if(j%%200 == 0){
+    
+    if(j%%2000 == 0){
       print(-sumpk/mb)
     }
   }
@@ -157,7 +157,7 @@ train <- function(nn, inp, k, eta = 0.01, mb = 10, nstep = 10000) {
 }
 
 ##############5
-set.seed(100)
+set.seed(888)
 data(iris)
 k <- c(4,8,7,3)
 iris$Species_numeric <- as.numeric(iris$Species) #类别数值化
@@ -170,28 +170,29 @@ training_data <- iris[-test_index,]
 
 #train:
 nn <- netup(k)
-backward(forward(nn,iris[1,1:4]),1)
+
 test <- train(nn, training_data[,1:4], training_data[,5],
               eta = 0.01, mb = 10, nstep = 10000)
 
-############6
 
+
+############6
+contrast_df <- data.frame(True_value = test_data[,5],
+                          predict_value = rep(0,length(test_index)))
 a = 0
 for(i in 1:length(test_index)){
-  i = 1
+  
   train <- forward(test,test_data[i,1:4])
+  p_value <- which.max(train$h[[4]])
+  contrast_df[i,2] <-  p_value
   
-  print("真实值：")
-  print(test_data[i,5])
-  print("预测值")
-  print(which.max(train$h[[4]]))
-  print(11111111111111111111)
-  
-  if(test_data[i,5] == which.max(train$h[[4]])){
+  if(test_data[i,5] != p_value){
+    
     a = a+1
+    
   }
   
 }
 
-#正确率
-print(a/length(test_index))
+print(contrast_df)
+misclassification_rate <- a/length(test_index);misclassification_rate
