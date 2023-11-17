@@ -1,0 +1,295 @@
+##################################################
+#   Ruxue Sun s2512645; Yin Zhang s2503497; Jiawen Liu s2280675
+#   
+#   https://github.com/RuxueSun/prac4-.git
+#
+#   Ruxue Sun(30%):Participate in discussions, write code, and modify code.
+#
+#   Yin Zhang(35%):Participate in discussions, analyse the problem, 
+#                  write code, modify and comment code.
+#
+#   Jiawen Liu(35%):Analyse and discuss the problem,
+#                   write code, and finally, 
+#                   make modifications and add comments to the code.
+#
+#   The purpose of the code is to train neural networks using stochastic
+#   gradient descent methods and test it with iris data.
+
+
+## The purpose of the code is to train neural networks using stochastic gradient
+## descent methods and test it with iris data.
+
+
+#################### 1 netup function
+
+## purpose: Initialized the values of h, w, and d with the given number of nodes 
+##          in each layer of the neural network.
+## Input:
+##      d: a vector giving the number of nodes in each layer of a network.
+## Output:
+##      h: a list of nodes for each layer.
+##      w: a list of weight matrices.
+##      b: a list of offset vectors.
+
+netup <- function(d){
+  
+  # compute the number of layers
+  layer <- length(d)
+  
+  # initialize weight matrices with U(0, 0.2) random deviates
+  W <- vector('list', layer-1)
+  for (i in 1:(layer-1)){
+    W[[i]] <- matrix(runif(d[i] * d[i+1],0 , 0.2), nrow = d[i+1], ncol = d[i])
+  }
+  
+  # initialize offset vectors with U(0, 0.2) random deviates
+  b <- vector('list', layer-1)
+  for (i in 1:(layer-1)){
+    b[[i]] <- runif(d[i+1],0,0.2)
+  }
+  
+  # initialize nodes for each layer
+  h <- lapply(d, function(k) rep(0, k))
+  
+  network <- list(h=h, W=W, b=b)
+  
+  return(network)
+  
+}
+
+
+#################### 2 forward function
+
+## purpose: Input the values of the first layer and calculate the node values 
+##          of the other layers based on W and b.
+## Input:
+##       nn: a network list as returned by netup.
+##       inp: a vector of input values for the first layer.
+## Output:
+##       Updated network list.
+
+forward <- function(nn,inp){
+  
+  # call the results of netup function
+  h <- nn$h
+  W <- nn$W 
+  b <- nn$b 
+  
+  # values for the first layer
+  h[[1]] <- inp
+  
+  # nodes for other layers
+  for (i in 2:(length(W)+1)){
+    
+    z <-  W[[i-1]] %*% h[[i-1]] + b[[i-1]]
+    
+    # ReLU transform
+    h[[i]] <- pmax(0,z) 
+  }
+  
+  network <- list(h=h, W=W, b=b)
+  
+  return(network)
+}
+
+
+#################### 3 backward function
+
+## purpose: compute the derivatives of the loss corresponding to output class k 
+##          for network nn, with respect to the nodes, weights and offsets, 
+##          written as dh, dW and db.
+## Input:
+##       nn: a network list as returned by forward.
+##       k: output class.
+## Output:
+##       Updated network list after adding dh, dW, db.
+
+backward <- function(nn,k){
+  
+  # call the results of forward function
+  h <- nn$h
+  W <- nn$W 
+  b <- nn$b
+  
+  # compute the number of layers
+  layer <- length(h)
+  
+  # set up the lists to store dh, dW, db.
+  dh <- vector('list', layer)
+  dW <- vector('list', layer-1)
+  db <- vector('list', layer-1)
+  
+  # compute pk, which is the probability that the output variable is in class k. 
+  sum <- sum(exp(h[[layer]]))
+  pk <- exp(h[[layer]][k])/sum
+  
+  # compute the derivative of the loss for k w.r.t the last vector in h.
+  for (j in 1:length(h[[layer]])){
+    if (j != k){
+      dh[[layer]][j] <- exp(h[[layer]][j])/sum
+    }else{
+      dh[[layer]][j] <- exp(h[[layer]][j])/sum - 1 
+    }
+  }
+  
+  # compute the derivatives of loss w.r.t. all the other h and b.
+  
+  # loop from back to front
+  for (i in layer:2){
+    for (j in 1:length(h[[i]])){
+      if (h[[i]][j] > 0 ){
+        db[[i-1]][j] <- dh[[i]][j]
+      }else{
+        db[[i-1]][j] <- 0
+      }
+    }
+    dh[[i-1]] <- t(W[[i-1]]) %*% db[[i-1]]
+  }
+  
+  # compute the derivatives of loss w.r.t. W.
+  for (i in 1:(layer-1)){
+    bdb <- as.numeric(db[[i]])
+    hnn <- as.numeric(h[[i]])
+    dW[[i]] <- bdb %*% t(hnn)
+  }
+  
+  network <- list(h=h, W=W, b=b, dh=dh, dW=dW, db=db, pk=pk)
+  
+  return(network)
+  
+}
+
+
+#################### 4 train function
+
+## purpose: Train the neural network. Carry out 'nstep' times of forward 
+##          propagation and back-propagation for mb data to reduce the loss.
+## Input:
+##       nn: a network list as returned by backwork.
+##       inp: given input data in the rows of matrix.
+##       k: a vector shows corresponding labels (1, 2, 3 . . . ).
+##       eta: the step size.
+##       mb: the number of data to randomly sample to compute the gradient.
+##       nstep: the number of optimization steps to take.
+## Output:
+##       Updated network list.
+
+train <- function(nn, inp, k, eta = 0.01, mb = 10, nstep = 10000) {
+  
+  #recursive to optimize the network
+  for(j in 1:nstep){
+    
+    # randomly select test objects
+    sp <- sample(1:nrow(inp),mb)
+    
+    # initialize sum of gradient and loss
+    sumW <- lapply(nn$W, function(mat) matrix(0, nrow = nrow(mat), 
+                                              ncol = ncol(mat)))
+    sumb <- lapply(nn$b, function(vec) matrix(0, nrow = length(vec), ncol = 1))
+    sumpk <- 0
+    
+    for(i in 1:mb){
+      
+      # forward propagation
+      nn <- forward(nn,inp[sp[i],])
+      
+      # back-propagation
+      nb <- backward(nn,k[sp[i]])
+      
+      # update gradients and loss
+      sumW <- lapply(seq_along(sumW), function(i) sumW[[i]] + nb$dW[[i]])
+      sumb <- Map('+',sumb,nb$db)
+      sumpk <- sumpk + log(nb$pk)
+    }
+    
+    # compute the step size multiplied by average gradients.
+    eta_EW <- lapply(sumW, function(a) eta*(a/mb))
+    eta_Eb <- lapply(sumb, function(a) eta*(a/mb))
+    
+    # update W and b
+    nn$W <- lapply(seq_along(eta_EW), function(i) nn$W[[i]] - eta_EW[[i]])
+    nn$b <- Map('-',nn$b,eta_Eb)
+    
+    # print loss every 2000 steps
+    if(j%%2000 == 0){
+      print(-sumpk/mb)
+    }
+  }
+  
+  return(nn)
+  
+}
+
+
+#################### 5 
+
+## purpose: Train a 4-8-7-3 network to classify irises to species based on the 
+##          4 characteristics given in the iris data set.
+
+set.seed(888)
+data(iris)
+
+# set up a vector 'd' that gives the number of nodes in each layer of a network
+d <- c(4,8,7,3)
+
+# numeralize the category
+iris$Species_numeric <- as.numeric(iris$Species) 
+
+# convert the iris data to matrix form and remove the original 'Species' column.
+iris <- as.matrix(iris[,-5])
+
+# set the test data, which consists of every 5th row of the iris data set, 
+# starting from row 5
+num_rows <- nrow(iris)
+test_index <- seq(5,num_rows,5)
+test_data <- iris[test_index,]
+
+# set the training data
+training_data <- iris[-test_index,]
+
+# train data
+nn <- netup(d)
+test <- train(nn, training_data[,1:4], training_data[,5], eta = 0.01, mb = 10, 
+              nstep = 10000)
+
+
+#################### 6
+
+## Purpose: classify the test data to species according to the class predicted 
+##          as most probable for each iris in the test set, and compute the 
+##          misclassification rate.
+
+# set up a data frame to contrast true species and predicted species.
+contrast_df <- data.frame(True_value = test_data[,5],
+                          predict_value = rep(0,length(test_index)))
+
+# initialize the number of misclassification data
+a = 0
+
+# loop over the test data
+for(i in 1:length(test_index)){
+  
+  # using the trained neural network test data
+  train <- forward(test,test_data[i,1:4])
+  
+  # find the predicted classification
+  p_value <- which.max(train$h[[4]])
+  
+  # store the predicted classification in the contrast data frame
+  contrast_df[i,2] <-  p_value
+  
+  # compare the predicted classification to the true classification. 
+  # If they are different, add 'a' by 1
+  if(test_data[i,5] != p_value){
+    a = a+1
+  }
+}
+
+# show the true classification and the predicted classification
+print(contrast_df)
+
+# compute the misclassification rate
+misclassification_rate <- a/length(test_index);misclassification_rate
+
+
+
